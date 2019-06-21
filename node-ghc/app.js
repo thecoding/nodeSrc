@@ -154,7 +154,7 @@ app.get("/loginOut", function (req, res) {
 
 function authorizationBond(req){
   if(req.session.isLogin){
-    return "Bearer " + req.session.access_token;
+    return "Bearer " + req.session.userInfo.access_token;
   }
   return "";
 }
