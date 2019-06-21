@@ -3,9 +3,6 @@ var urlUtil = require('url');
 // var file = require("./file");
 var querystring = require('querystring');
 var HttpUtil = {
-    setAuthorization : function(authorization){
-      this.Authorization = Authorization;
-    },
     //get提交url，返回html数据
     get : function(url,success,error){
         http.get(url,function(res){
@@ -20,7 +17,7 @@ var HttpUtil = {
             });
         }).on('error',this.requestError);
     },
-    post : function(hostname,port,path,body,acceptType,contentType,success,error){
+    post : function(hostname,port,path,body,acceptType,contentType,authorization,success,error){
         var bodyString = "";
         if(body!=null && contentType == "application/json"){
             bodyString = JSON.stringify(body);
@@ -34,7 +31,7 @@ var HttpUtil = {
             path : path,
             method: 'POST',
             headers : {
-                'Authorization': "Bearer 2fcadc65-9368-4414-bc3d-60d2d84c1bbd",
+                'Authorization': authorization,
                 'Accept':acceptType,
                 'Content-Type':contentType,
                 'Content-Length':bodyString.length
@@ -44,6 +41,9 @@ var HttpUtil = {
         // console.info(opts.headers);
  
         var req = http.request(opts,function(res){
+            console.log(opts);
+            console.log(bodyString);
+            
             var result = "";
             res.setEncoding("UTF-8");
             res.on("data",function(data){
@@ -63,11 +63,11 @@ var HttpUtil = {
         req.end();
     },
     //提交表单参数，并返回html内容
-    postAndReturnHtml : function(url,body,success,error){
+    postAndReturnHtml : function(url,body,authorization,success,error){
         var urlConfig = urlUtil.parse(url);
         var contentType = "application/x-www-form-urlencoded";
         var acceptType = "text/html";
-        this.post(urlConfig.hostname,urlConfig.port,urlConfig.path,body,acceptType,contentType,success,this.responseError);
+        this.post(urlConfig.hostname,urlConfig.port,urlConfig.path,body,acceptType,contentType,authorization,success,this.responseError);
     },
     //get提交url参数，并返回json数据
     getAndReturnJson : function(url,success,error){
@@ -77,11 +77,11 @@ var HttpUtil = {
         },this.responseError(error));
     },
     //提交json参数，并返回json
-    postAndReturnJson : function(url,body,success,error){
+    postAndReturnJson : function(url,body,authorization,success,error){
         var contentType = "application/json";
         var acceptType = "application/json";
         var urlConfig = urlUtil.parse(url);
-        this.post(urlConfig.hostname,urlConfig.port,urlConfig.path,body,acceptType,contentType,function(data){
+        this.post(urlConfig.hostname,urlConfig.port,urlConfig.path,body,acceptType,contentType,authorization,function(data){
             var data = JSON.parse(data);
             success(data);
         },this.responseError(error));
