@@ -2,6 +2,15 @@ var http = require("http");
 var urlUtil = require('url');
 // var file = require("./file");
 var querystring = require('querystring');
+
+
+var httpConfig = {
+  hostname: '192.168.2.186',
+  port: 8021,
+}
+
+
+
 var HttpUtil = {
     //get提交url，返回html数据
     get : function(url,success,error){
@@ -17,7 +26,7 @@ var HttpUtil = {
             });
         }).on('error',this.requestError);
     },
-    post : function(hostname,port,path,body,acceptType,contentType,authorization,success,error){
+    post : function(path,body,acceptType,contentType,authorization,success,error){
         var bodyString = "";
         if(body!=null && contentType == "application/json"){
             bodyString = JSON.stringify(body);
@@ -26,8 +35,8 @@ var HttpUtil = {
             bodyString = querystring.stringify(body);
         }
         var opts = {
-            hostname : hostname,
-            port : port,
+            hostname : httpConfig.hostname,
+            port : httpConfig.port,
             path : path,
             method: 'POST',
             headers : {
@@ -38,33 +47,46 @@ var HttpUtil = {
             }
         }
 
-        // console.info(opts.headers);
- 
-        var req = http.request(opts,function(res){
+        return new Promise((resolve,reject) => {
+          
+          var req = http.request(opts,function(res){
             var result = "";
             res.setEncoding("UTF-8");
+
+
             res.on("data",function(data){
                 result += data;
             });
-            res.on('error',function(){
-              error(result);
-            });
+            // res.on('error',function(){
+            //   console.info(11);
+            //   console.info(result);
+            //   reject(result);
+            //   req.write(bodyString);
+            //   req.end(); 
+            // });
+            
+            //有返回
             res.on('end',function(){
-                success(result);
+              // console.info("返回状态: "+res.statusCode);
+              // console.info(result);
+              if(res.statusCode == 200){
+                resolve(result);
+              }else{
+                reject(result);
+              }
             });
- 
+          });
+
+            req.write(bodyString);
+            req.end();  
         });
-        req.on('error',this.requestError);
-        // file.writeInFile(req);
-        req.write(bodyString);
-        req.end();
+
     },
     //提交表单参数，并返回html内容
-    postAndReturnHtml : function(url,body,authorization,success,error){
-        var urlConfig = urlUtil.parse(url);
+    postAndReturnHtml : function(path,body,authorization){
         var contentType = "application/x-www-form-urlencoded";
         var acceptType = "text/html";
-        this.post(urlConfig.hostname,urlConfig.port,urlConfig.path,body,acceptType,contentType,authorization,success,error);
+        return this.post(path,body,acceptType,contentType,authorization);
     },
     //get提交url参数，并返回json数据
     getAndReturnJson : function(url,success,error){
@@ -74,14 +96,10 @@ var HttpUtil = {
         },this.responseError(error));
     },
     //提交json参数，并返回json
-    postAndReturnJson : function(url,body,authorization,success,error){
+    postAndReturnJson : function(path,body,authorization){
         var contentType = "application/json";
         var acceptType = "application/json";
-        var urlConfig = urlUtil.parse(url);
-        this.post(urlConfig.hostname,urlConfig.port,urlConfig.path,body,acceptType,contentType,authorization,function(data){
-            var data = JSON.parse(data);
-            success(data);
-        },this.responseError(error));
+        return this.post(path,body,acceptType,contentType,authorization);
     },
     requestError : function(error){
         console.log("请求失败--"+error.message);
