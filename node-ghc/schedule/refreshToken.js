@@ -20,15 +20,18 @@
  */
 
 var httpUtilPromisify = require("../utils/httpUtilPromisify");
-var httpUtil = require("../utils/httpUtil");
 var redis = require("redis")
+var utils = require("../utils/utils")
+require('date-utils')
 
 
 var options = {
   auth_pass : 'zxwlpt',
   db : 0
 }
+
 var redisClient = redis.createClient('6379','192.168.1.250',options);
+
 
 const schedule = require("node-schedule");
 const sessionTime = 60 * 5; /// session 保存时间 秒
@@ -38,26 +41,29 @@ var scheduleTask = {
   refreshToken: function () {
     //每分钟的第30秒定时执行一次:
     schedule.scheduleJob('*/5 * * * * *', () => {
-      // console.log('scheduleCronstyle:' + new Date());
-      refreshTokenAndSession();
-      // getUserInfo();
+      if(redisClient.connected){
+        refreshTokenAndSession();
+      }else{
+        console.info("连接失败")
+      }
+      console.info("处理完成" + new Date().toFormat("YYYY-MM-DD HH24:MI:SS"))
     });
   }
 };
 
-async function getUserInfo(){
-  await redisClient.get('sess:LPDp9b7d-wxvrz4ENM28q-hwa6U7LqPo',function(err,data){
-    console.info(data);
-  });
-}
+redisClient.on('error',function(error){
+  console.log(error);
+});
+
+
 
 async function refreshTokenAndSession(){
   try {
     await redisClient.keys('sess:*', async (error, keyList) => {
       for(let key in keyList){
-        console.info(keyList[key]);
+        // console.info(keyList[key]);
         await redisClient.get(keyList[key], async (err, data) => {
-          console.info(typeof keyList[key]);
+          // console.info(typeof keyList[key]);
           let rtn = refreshRequest(data,keyList[key]);//请求刷新
         });
       }
@@ -68,8 +74,11 @@ async function refreshTokenAndSession(){
 }
 
 
+/***
+ * 刷新请求、重新设置redis中session值、设置expire有效时间
+ */
 async function refreshRequest(sessionData,key){
-  console.info(sessionData);
+  // console.info(sessionData);
   var sessionData = JSON.parse(sessionData);
   var contents = {
     client_id: 'paycenter',
@@ -80,10 +89,10 @@ async function refreshRequest(sessionData,key){
     sign: ''
   };
   try {
-    let data = await httpUtilPromisify.postAndReturnHtml("/auth/oauth/token", contents, authorizationBond(sessionData.userInfo));  
+    let data = await httpUtilPromisify.postAndReturnHtml("/auth/oauth/token", contents, utils.authorizationBond(sessionData.userInfo));  
     let rtn = JSON.parse(data).content;
     sessionData.userInfo = rtn;
-    console.info(sessionData);
+    // console.info(sessionData);
     try {
       await redisClient.set(key, JSON.stringify(sessionData),function(err,data){
         if(!err){
@@ -91,7 +100,6 @@ async function refreshRequest(sessionData,key){
         }
       }); 
     } catch (error) {
-      console.info(" test ")
       console.info(error);
     }
     console.log(sessionData.userInfo.access_token + " 刷新成功 ");
@@ -99,59 +107,6 @@ async function refreshRequest(sessionData,key){
   } catch (error) {
     console.log(sessionData.userInfo.access_token + " 刷新失败 ");
     return;
-  }
-}
-
-function authorizationBond(userInfo){
-  if(userInfo){
-    return "Bearer " + userInfo.access_token;
-  }
-  return "";
-}
-
-async function refreshRedisToken(userInfo){
-  var contents = {
-    client_id: 'paycenter',
-    client_secret: 'paycenter',
-    Scope: 'server',
-    grant_type: 'refresh_token',
-    refresh_token: userInfo.refresh_token,
-    sign: ''
-  };
-  var authorizationBond = "Bearer " + userInfo.access_token;
-  httpUtil.postAndReturnHtml("http://192.168.2.181:8021/auth/oauth/token", contents,authorizationBond, function (data) {
-    res.send(data);
-    res.end();
-  });
-}
-
-
-/**
- * @desc 获取token
- * @return {Object}
- */
-async function retrieveToken(req) {
-  const { access_token, token_type, refresh_token, expires_in , scope, license } = typeof req.session.userinfo == 'string' ? JSON.parse(req.session.userinfo) : req.session.userinfo;
-  try {
-    await redisClient.keys('sess:*', async (error, keyList) => {
-      for (let key in keyList) {
-        key = keyList[key];
-        let rtnkey = await redisClient.get(key, function(err, data) {
-          var session_access_token  = typeof data == 'string' ? JSON.parse(JSON.parse(data).userinfo).access_token : data;
-          if (access_token != session_access_token) {
-            return "";
-          } else {
-            return key;
-          }
-        });
-        if(rtnkey != ""){
-          return rtnkey;
-        }
-      }
-      return "-1";
-    });
-  } catch (err) {
-    console.info(err)
   }
 }
 

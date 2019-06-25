@@ -1,7 +1,7 @@
 
-// session管理
-// ticket续期
-// 导入透传
+// session管理  完成
+// ticket续期   完成
+// 导入透传       
 // excel附件生成
 // 多线程请求
 
@@ -12,14 +12,15 @@
 //签名
 
 var express = require("express");
-var http = require("http");
 var session = require("express-session");
 var httpUtil = require("./utils/httpUtil");
 var scheduleTask = require("./schedule/refreshToken");
 var RedisStore = require('connect-redis')(session);
 var url = require("url");
+var utils = require("./utils/utils")
 
 var httpUtilPromisify = require("./utils/httpUtilPromisify");
+
 require("date-utils");
 
 
@@ -63,8 +64,6 @@ var options = {
 }
 
 
-
-
 // {"access_token":"2fcadc65-9368-4414-bc3d-60d2d84c1bbd","token_type":"bearer","refresh_token":"90abb796-6371-44d7-bc50-0fcaae7ced66","expires_in":22520,"scope":"server","license":"yangliu"}
 
 //登陆
@@ -73,8 +72,8 @@ app.get("/login", async function (req, res) {
   if (req.session.isLogin) {//检查用户是否已经登录
     res.send(req.session);
 
-    console.info(new Date().toFormat("YYYY-MM-DD HH24:MI:SS"));
-    console.info(new Date().addSeconds(600).toFormat("YYYY-MM-DD HH24:MI:SS"));
+    // console.info(new Date().toFormat("YYYY-MM-DD HH24:MI:SS"));
+    // console.info(new Date().addSeconds(600).toFormat("YYYY-MM-DD HH24:MI:SS"));
 
   } else {
     //登陆请求
@@ -90,12 +89,6 @@ app.get("/login", async function (req, res) {
       sign: ''
     };
     
-    // var s = await httpUtilPromisify.postAndReturnHtml(options.host+":"+options.port+"/auth/oauth/token", contents,"",function(data){
-    //   console.info(data);
-    //   res.send(data);
-    //   res.end();
-    // });
-
     try {
       var s = await httpUtilPromisify.postAndReturnHtml("/auth/oauth/token", contents,"");  
       req.session.isLogin = true;
@@ -126,7 +119,7 @@ app.get("/refresh",function(req,res){
     refresh_token: req.session.userInfo.refresh_token,
     sign: ''
   };
-  httpUtil.postAndReturnHtml(options.host+":"+options.port+"/auth/oauth/token", contents,authorizationBond(req), function (data) {
+  httpUtil.postAndReturnHtml(options.host+":"+options.port+"/auth/oauth/token", contents,utils.authorizationBond(req), function (data) {
     res.send(data);
     res.end();
   });
@@ -136,20 +129,15 @@ app.get("/refresh",function(req,res){
 //退出登陆
 app.get("/loginOut", function (req, res) {
 
-  httpUtil.postAndReturnJson(options.host+":"+options.port+"/oauth/removeToken", "",authorizationBond(req), function (data) {
+  httpUtil.postAndReturnJson(options.host+":"+options.port+"/oauth/removeToken", "",utils.authorizationBond(req), function (data) {
     console.info(data);
+    req.session.destroy();
+    res.send("退出登陆成功");
+    res.end();
   });
-  req.session.destroy();
-  res.send("退出登陆成功");
 });
 
 
-function authorizationBond(req){
-  if(req.session.isLogin){
-    return "Bearer " + req.session.userInfo.access_token;
-  }
-  return "";
-}
 
 
 //请求转发
@@ -172,7 +160,7 @@ app.get("/api/*", async function (req, res) {
 
 
   try {
-    let rtn = await httpUtilPromisify.postAndReturnJson(realPathName,contents,authorizationBond(req));  
+    let rtn = await httpUtilPromisify.postAndReturnJson(realPathName,contents,utils.authorizationBond(req));  
     res.send(rtn);
   } catch (error) {
     res.send({
