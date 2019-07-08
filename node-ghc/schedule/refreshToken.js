@@ -36,6 +36,7 @@ var redisClient = redis.createClient('6379','192.168.1.250',options);
 const schedule = require("node-schedule");
 const sessionTime = 60 * 5; /// session 保存时间 秒
 const redisExpire = 60 * 8; /// redis中session 保留时间 秒
+const expiresTime = 60 * 10; // 单位秒； session 中 expires_in值小于这个值就请求刷新，这个值不能小于task的循环间隔时间
 
 var scheduleTask = {
   refreshToken: function () {
@@ -61,10 +62,12 @@ async function refreshTokenAndSession(){
   try {
     await redisClient.keys('sess:*', async (error, keyList) => {
       for(let key in keyList){
-        // console.info(keyList[key]);
         await redisClient.get(keyList[key], async (err, data) => {
-          // console.info(typeof keyList[key]);
-          let rtn = refreshRequest(data,keyList[key]);//请求刷新
+          // exprise_in 小于一个阀值的时候就去刷新
+          var sessionData = JSON.parse(sessionData);
+          if(sessionData.userInfo.expires_in && sessionData.userInfo.expires_in< expiresTime){
+            let rtn = refreshRequest(data,keyList[key]);//请求刷新
+          }          
         });
       }
     });

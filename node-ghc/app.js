@@ -1,8 +1,11 @@
 
-// session管理  完成
-// ticket续期   完成
+//签名          完成 - utils.getSign
+// session管理  完成 - redis管理
+// ticket续期   完成 - scheduleTask
 // 导入透传       
 // excel附件生成
+
+
 // 多线程请求
 
 
@@ -13,15 +16,72 @@
 
 var express = require("express");
 var session = require("express-session");
-var httpUtil = require("./utils/httpUtil");
 var scheduleTask = require("./schedule/refreshToken");
 var RedisStore = require('connect-redis')(session);
-var url = require("url");
-var utils = require("./utils/utils")
 
-var httpUtilPromisify = require("./utils/httpUtilPromisify");
+var httpUtil = require("./utils/httpUtil");
+var utils = require("./utils/utils");
+//引入multer模块  
+var multer = require ('multer');
+//uuid工具可以生成唯一标示 需要安装
+var UUID = require('uuid');
+
+var path = require('path');
+
+
+//中台续传
+const fs = require('fs')
+// const path = require('path')
+const FormData = require('form-data')
+const fetch = require('node-fetch')
+const router = require('./routes/index')
+const multipart = require('connect-multiparty');
+var multipartMiddleware = multipart()
+//中台续传
+
+
 
 require("date-utils");
+
+//文件上传-----star
+//设置保存规则
+var storage = multer.diskStorage({
+  //destination：字段设置上传路径，可以为函数
+  destination: path.join(__dirname, 'temp'),
+
+  //filename：设置文件保存的文件名
+  filename: function(req, file, cb) {
+      let extName = file.originalname.slice(file.originalname.lastIndexOf('.'))
+      let fileName = UUID.v1()
+      cb(null, fileName + extName)
+  }
+});
+//设置过滤规则（可选）
+var imageFilter = function(req, file, cb){
+    var acceptableMime = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif']
+    //微信公众号只接收上述四种类型的图片
+    if(acceptableMime.indexOf(file.mimetype) !== -1){
+        cb(null, true)
+    }else{
+        cb(null, false)
+    }
+}
+//设置限制（可选）
+var imageLimit = {
+  fieldSize: '2MB'
+}
+
+//创建 multer 实例
+var imageUploader = multer({ 
+  storage: storage,
+  // fileFilter: imageFilter,
+  // limits: imageLimit
+}).array('logo', 12)    //定义表单字段、数量限制
+
+//文件上传-----end
+
+
+
 
 
 // 创建express客户端
@@ -31,17 +91,18 @@ const app = express();
 
 
 /// 设置 Express 的 Session 存储中间件 用redis存储
-/// session 保留时间是 300秒
+/// session 保留时间是 300秒 
+// 测试改为 30000秒
 var config = {
   "cookie": {
-    "maxAge": 30000
+    "maxAge": 3000000
   },
   "sessionStore": {
     "host": "192.168.1.250",
     "port": "6379",
     "pass": "zxwlpt",
     "db": 0,
-    "ttl": 300, //单位秒
+    "ttl": 30000, //单位秒
     "logErrors": true
   }
 };
@@ -58,55 +119,94 @@ app.use(session({
 
 
 var options = {
-  host: 'http://192.168.2.186',
+  host: 'http://192.168.1.127',
   port: '8021',
   method: 'POST',
 }
 
 
-// {"access_token":"2fcadc65-9368-4414-bc3d-60d2d84c1bbd","token_type":"bearer","refresh_token":"90abb796-6371-44d7-bc50-0fcaae7ced66","expires_in":22520,"scope":"server","license":"yangliu"}
-
-//登陆
-app.get("/login", async function (req, res) {
-
-  if (req.session.isLogin) {//检查用户是否已经登录
-    res.send(req.session);
-
-    // console.info(new Date().toFormat("YYYY-MM-DD HH24:MI:SS"));
-    // console.info(new Date().addSeconds(600).toFormat("YYYY-MM-DD HH24:MI:SS"));
-
-  } else {
-    //登陆请求
-    var contents = {
-      // username: req.query.username,
-      username: "admin",
-      // password: req.query.password,
-      password: "ODkxMjM0NTYyOXt6eH0=",
-      client_id: 'paycenter',
-      client_secret: 'paycenter',
-      Scope: 'server',
-      grant_type: 'password',
-      sign: ''
-    };
-    
-    try {
-      var s = await httpUtilPromisify.postAndReturnHtml("/auth/oauth/token", contents,"");  
-      req.session.isLogin = true;
-      req.session.userInfo = JSON.parse(s).content;
-
-      res.send(s);
-    } catch (error) {
-      res.send({
-        time: new Date().toFormat("YYYY-MM-DD HH24:MI:SS"),
-        status: 500,
-        errorCode: null,
-        message: 'fail',
-        contents: {}
-      });
-    }
-    res.end();
-  }
+app.post("/upload-array",imageUploader,function(req,res,next){
+  console.log(req.file);  
+  console.log(req.body); 
+  res.end("上传成功"); 
 });
+
+
+//设置上传的目录，  
+var upload = multer({ dest:  path.join(__dirname,'temp')});  
+
+app.post("/upload-single",upload.single('logo'),function(req,res,next){
+  console.log(req.file);  
+  console.log(req.body); 
+  res.end("上传成功"); 
+});
+
+//中台续传
+app.post('/upload111', multipartMiddleware, function (req, res) {
+  console.log(req.body, req.files);
+
+  var fileArr = new Array();
+  let form = new FormData();
+  var headers;
+  if(req.files.file.length == undefined){
+    fileArr.push(req.files.file);
+  }else if(req.files.file.length>0){
+    fileArr = req.files.file;
+  }
+  if(fileArr.length == 0){
+    res.end({error: "没有找到图片"});
+  }
+  for(var i=0;i<fileArr.length;i++){
+    const { path: filePath, originalFilename } = fileArr[i];
+    const newPath = path.join(path.dirname(filePath), originalFilename);
+    fs.renameSync(filePath,newPath);
+    form.append('file', fs.createReadStream(newPath));
+  }
+  // headers = fileArr[0].headers;  //不需要设置
+  headers = {};
+  headers.Authorization =  utils.authorizationIsLogin(req);
+  var sign = utils.getSign("/base/sysAttach/doUpload",{},req.session.userInfo.access_token);
+  fetch(options.host+':'+options.port+"/base/sysAttach/doUpload"+"?sign="+sign, {
+      method: "POST",
+      body: form,
+      headers: headers
+  }).then(res => res.json()).then(data => {
+    res.send({data:data}); //将上传结果返回给前端
+    res.end();
+  });
+
+  // const { path: filePath, originalFilename } = req.files.file
+  // const newPath = path.join(path.dirname(filePath), originalFilename)
+
+  // fs.rename(filePath, newPath, function (err) {
+  //     if (err) {
+  //         return;
+  //     }
+  //     else {
+  //         const file = fs.createReadStream(newPath)
+  //         const form = new FormData();
+  //         const authorization = utils.authorizationIsLogin(req);
+  //         form.append('file', file)
+
+  //         fetch(options.host+':'+options.port+"/base/sysAttach/doUpload", {
+  //             method: "POST",
+  //             body: form,
+  //             // form.getHeaders()
+  //             headers: {
+  //               'Authorization': authorization,
+  //             }  
+  //         }).then(res => res.json()).then(data => {
+  //           res.send({data:data}); //将上传结果返回给前端
+  //         });
+  //     }
+  // })
+  // res.json({})
+});
+//中台续传
+
+
+/// 查询图片接口
+// http://127.0.0.1:8021/base/sysAttach/doQuery  查询的 {"flowIds":"1"}   逗号隔开
 
 
 //刷新token
@@ -119,70 +219,25 @@ app.get("/refresh",function(req,res){
     refresh_token: req.session.userInfo.refresh_token,
     sign: ''
   };
-  httpUtil.postAndReturnHtml(options.host+":"+options.port+"/auth/oauth/token", contents,utils.authorizationBond(req), function (data) {
+  httpUtil.postAndReturnHtml(options.host+":"+options.port+"/auth/oauth/token", contents,utils.authorizationIsLogin(req), function (data) {
     res.send(data);
     res.end();
   });
 });
 
 
-//退出登陆
-app.get("/loginOut", function (req, res) {
-
-  httpUtil.postAndReturnJson(options.host+":"+options.port+"/oauth/removeToken", "",utils.authorizationBond(req), function (data) {
-    console.info(data);
-    req.session.destroy();
-    res.send("退出登陆成功");
-    res.end();
-  });
-});
 
 
 
 
-//请求转发
-app.get("/api/*", async function (req, res) {
-  var urlPath = url.parse(req.url);
-  var realPathName = "";
-  if (urlPath.pathname.startsWith("/api/")) {
-    realPathName = urlPath.pathname.substr(4, urlPath.pathname.length);
-  }
-  var contents = {
-    "_PAGE_NUMBER": 1,
-    "_PAGE_SIZE": 10
-  }
 
-  //  /pay/billManage/queryBillManageList
-  // httpUtil.postAndReturnJson(realPathName, contents,authorizationBond(req), function (data) {
-  //   res.send(data);
-  //   res.end();
-  // })
-
-
-  try {
-    let rtn = await httpUtilPromisify.postAndReturnJson(realPathName,contents,utils.authorizationBond(req));  
-    res.send(rtn);
-  } catch (error) {
-    res.send({
-      time: new Date().toFormat("YYYY-MM-DD HH24:MI:SS"),
-      status: 500,
-      errorCode: null,
-      message: 'fail',
-      contents: {}
-    });
-  }
-  res.end();
-  
-});
-
+router(app);
 
 
 app.get("*", function (req, res) {
   res.send("请求不正确");
   res.end;
 });
-
-
 
 var server = app.listen(8882, "127.0.0.1", function () {
   var host = server.address().address
@@ -191,5 +246,5 @@ var server = app.listen(8882, "127.0.0.1", function () {
 });
 
 //定时刷新token
-scheduleTask.refreshToken();
+// scheduleTask.refreshToken();
 

@@ -2,8 +2,16 @@
 
 'use strict';
 
-import login from './login'
+const login = require('./login');
+const api = require('./api');
+const upload = require('./upload');
+const download = require('./download');
 
-export default app => {
-  app.use('/login', login);
+module.exports =  app => {
+  app.use('/v1', login);
+  app.use('/api', api);
+  app.use('/upload', upload);
+  app.use('/download', download);
 }
+
+

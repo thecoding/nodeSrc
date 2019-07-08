@@ -1,11 +1,12 @@
 
 
 
-import express from 'express'
-import LoginCtr from '../controller/login.js'
+const express = require('express')
+const LoginHandle = require('../controller/login.js')
 const router = express.Router();
 
-router.get('/login',LoginCtr.doLogin);
-router.get('/loginOut',LoginCtr.loginOut);
+router.get('/login',LoginHandle.doLogin);
+router.get('/loginOut',LoginHandle.loginOut);
 
-export default router;
+
+module.exports = router;

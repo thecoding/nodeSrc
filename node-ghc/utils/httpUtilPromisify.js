@@ -1,11 +1,11 @@
 var http = require("http");
-var urlUtil = require('url');
 // var file = require("./file");
 var querystring = require('querystring');
+var utils = require('../utils/utils')
 
 
 var httpConfig = {
-  hostname: '192.168.2.186',
+  hostname: '192.168.1.127',
   port: 8021,
 }
 
@@ -26,8 +26,16 @@ var HttpUtil = {
             });
         }).on('error',this.requestError);
     },
-    post : function(path,body,acceptType,contentType,authorization,success,error){
+    post : function(path,body,acceptType,contentType,authorization,accessToken,success,error){
+        
+        //计算sign
+        var sign = utils.getSign(path,body,accessToken);
+
         var bodyString = "";
+        if(body == null || body == ""){
+          body = {};
+        }
+        body.sign = sign;
         if(body!=null && contentType == "application/json"){
             bodyString = JSON.stringify(body);
         }
@@ -57,18 +65,14 @@ var HttpUtil = {
             res.on("data",function(data){
                 result += data;
             });
-            // res.on('error',function(){
-            //   console.info(11);
-            //   console.info(result);
-            //   reject(result);
-            //   req.write(bodyString);
-            //   req.end(); 
-            // });
+            res.on('error',function(){
+              // reject(result);
+              req.write(result);
+              req.end(); 
+            });
             
             //有返回
             res.on('end',function(){
-              // console.info("返回状态: "+res.statusCode);
-              // console.info(result);
               if(res.statusCode == 200){
                 resolve(result);
               }else{
@@ -76,7 +80,6 @@ var HttpUtil = {
               }
             });
           });
-
             req.write(bodyString);
             req.end();  
         });
@@ -96,10 +99,10 @@ var HttpUtil = {
         },this.responseError(error));
     },
     //提交json参数，并返回json
-    postAndReturnJson : function(path,body,authorization){
+    postAndReturnJson : function(path,body,authorization,accessToken){
         var contentType = "application/json";
         var acceptType = "application/json";
-        return this.post(path,body,acceptType,contentType,authorization);
+        return this.post(path,body,acceptType,contentType,authorization,accessToken);
     },
     requestError : function(error){
         console.log("请求失败--"+error.message);
@@ -110,5 +113,7 @@ var HttpUtil = {
         };
     }
 }
+
+
  
 module.exports = HttpUtil;
