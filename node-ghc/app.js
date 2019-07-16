@@ -95,7 +95,8 @@ const app = express();
 // 测试改为 30000秒
 var config = {
   "cookie": {
-    "maxAge": 3000000
+    "maxAge": 3000000,
+    "secure": false
   },
   "sessionStore": {
     "host": "192.168.1.250",
@@ -110,9 +111,9 @@ var config = {
 app.use(session({
   name: "sid", //// 可省略，默认就是sid
   secret: 'Asecret-', // 密钥示例，运行环境应至少使用128位随机字符串
-  resave: true, // cookie之间的请求规则,假设每次登陆，就算会话存在也重新保存一次
+  resave: false, //强制session保存到session store中 cookie之间的请求规则,假设每次登陆，就算会话存在也重新保存一次
   rolling: true, 
-  saveUninitialized: false,
+  saveUninitialized: true,
   cookie: config.cookie,
   store: new RedisStore(config.sessionStore)
 }));
@@ -123,6 +124,34 @@ var options = {
   port: '8021',
   method: 'POST',
 }
+
+app.get("/test",function(req,res){
+  res.end("server is ok!!");
+});
+
+app.get("/test1",function(req,res){
+  res.set({'Content-Type': 'text/plain;charset=utf-8'});
+  res.end("中文 !!");
+});
+
+app.post("*", function (req, res,next) {
+  
+  console.log(new Date().toFormat("YYYY-MM-DD HH24:MI:SS")+ " request请求："+req.path);
+  res.set({'Content-Type': 'text/plain;charset=utf-8'});
+  if(req.path == '/favicon.ico'){
+    res.end();
+    return;
+  }
+  // console.info("sessionId: "+ req.sessionID);
+  if(req.path != '/admin/login' && (req.session == null || !req.session.isLogin)){
+    res.status(401).send(utils.error401());
+    res.end();
+    return;
+  }else{
+    next();
+  }
+});
+
 
 
 app.post("/upload-array",imageUploader,function(req,res,next){
@@ -234,12 +263,39 @@ app.get("/refresh",function(req,res){
 router(app);
 
 
+app.use('/static',express.static(path.join(__dirname, './public')));
+
+// app.all('/', function(req, res){
+//     console.log("=======================================");
+//     console.log("请求路径："+req.url);
+//     var filename = req.url.split('/')[req.url.split('/').length-1];
+//     var suffix = req.url.split('.')[req.url.split('.').length-1];
+//     console.log("文件名：", filename);
+//     if(req.url==='/'){
+//         res.writeHead(200, {'Content-Type': 'text/html'});
+//         res.end(get_file_content(path.join(__dirname, 'html', 'index.html')));
+//     }else if(suffix==='css'){
+//         res.writeHead(200, {'Content-Type': 'text/css'});
+//         res.end(get_file_content(path.join(__dirname, 'public', 'css', filename)));
+//     }else if(suffix in ['gif', 'jpeg', 'jpg', 'png']) {
+//         res.writeHead(200, {'Content-Type': 'image/'+suffix});
+//         res.end(get_file_content(path.join(__dirname, 'public', 'images', filename)));
+//     }else if(suffix === 'xlsx'){
+//         res.writeHead(200, {"Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}); //xlsx 文件制定类型);
+//         res.end(get_file_content(path.join(__dirname, 'public', 'xlsx', filename)));
+//     }
+// });
+
+// function get_file_content(filepath){
+//   return fs.readFileSync(filepath);
+// }
+
 app.get("*", function (req, res) {
   res.send("请求不正确");
   res.end;
 });
 
-var server = app.listen(8882, "127.0.0.1", function () {
+var server = app.listen(8882, "0.0.0.0", function () {
   var host = server.address().address
   var port = server.address().port
   console.log("应用实例，访问地址为 http://%s:%s", host, port)

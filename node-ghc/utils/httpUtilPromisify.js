@@ -27,14 +27,15 @@ var HttpUtil = {
         }).on('error',this.requestError);
     },
     post : function(path,body,acceptType,contentType,authorization,accessToken,success,error){
-        
-        //计算sign
-        var sign = utils.getSign(path,body,accessToken);
-
-        var bodyString = "";
-        if(body == null || body == ""){
+        var bodyString;
+        if(body == null || body == "" || body == "{}"){
           body = {};
         }
+        if(body.sign != undefined){
+          delete body.sign;
+        }
+        //计算sign
+        var sign = utils.getSign(path,body,accessToken);
         body.sign = sign;
         if(body!=null && contentType == "application/json"){
             bodyString = JSON.stringify(body);
@@ -51,7 +52,7 @@ var HttpUtil = {
                 'Authorization': authorization,
                 'Accept':acceptType,
                 'Content-Type':contentType,
-                'Content-Length':bodyString.length
+                'Content-Length':Buffer.byteLength(bodyString,'utf8')
             }
         }
 
@@ -80,6 +81,7 @@ var HttpUtil = {
               }
             });
           });
+          console.log(httpConfig.hostname+':'+httpConfig.port+path+'?'+bodyString);
             req.write(bodyString);
             req.end();  
         });

@@ -7,6 +7,7 @@ const router = express.Router();
 const multipart = require('connect-multiparty');
 var multipartMiddleware = multipart();
 
-router.post('/*',multipartMiddleware,Upload.upload);
+router.post('/image',multipartMiddleware,Upload.uploadImage);
+router.post('/file/*',multipartMiddleware,Upload.uploadFile);
 
 module.exports = router;

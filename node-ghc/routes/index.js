@@ -8,7 +8,7 @@ const upload = require('./upload');
 const download = require('./download');
 
 module.exports =  app => {
-  app.use('/v1', login);
+  app.use('/admin', login);
   app.use('/api', api);
   app.use('/upload', upload);
   app.use('/download', download);

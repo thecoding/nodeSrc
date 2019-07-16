@@ -8,27 +8,31 @@ class Api {
   async invokeApi(req, res, next) {
     //  /pay/billManage/queryBillManageList
     if(req.session == null || !req.session.isLogin){
-      res.send(utils.errorObj());
+      res.status(500).send(utils.errorObj());
       res.end();
       return;
     }
-    
-    var realPathName = url.parse(req.url).pathname;
+    var post = '';
+    req.on('data',function(data){
+      post += data;
+    });
 
-    try {
-      let rtn = await httpUtilPromisify.postAndReturnJson(realPathName, req.query, utils.authorizationIsLogin(req),req.session.userInfo.access_token);
-      res.send(rtn);
-    } catch (error) {
-      console.error(error);
-      res.send({
-        time: new Date().toFormat("YYYY-MM-DD HH24:MI:SS"),
-        status: 500,
-        errorCode: null,
-        message: 'fail',
-        contents: {}
-      });
-    }
-    res.end();
+    req.on('end', async function(){
+      var query = JSON.parse(post);
+      var realPathName = url.parse(req.url).pathname;
+      try {
+        let rtn = await httpUtilPromisify.postAndReturnJson(realPathName, query, utils.authorizationIsLogin(req),req.session.userInfo.access_token);
+        var json = JSON.parse(rtn);
+        res.status(json.status);
+        res.send(rtn);
+        res.end();
+      } catch (error) {
+        console.error(realPathName);
+        console.error(error);
+        res.status(500).send(error);
+        res.end();
+      }
+    })
   }
 }
 

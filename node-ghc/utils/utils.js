@@ -60,10 +60,14 @@ var utils = {
     let urlDeal = url.substring(1);
     if(param){
       for(let p in param){
-        if(param[p] != '' && param[p] != null){
-          newUrl += `${p}=${param[p]}&`;
+        pValue = param[p];
+        // console.info(p);
+        // console.info(param[p]);
+        if(pValue != null && pValue !== ''){
+          newUrl += `${p}=${pValue}&`;
         }
       }
+      // var newUrl = tranParam(param);
       let newArrayUrl = newUrl.split("&").sort().slice(1);
       value = urlDeal+(newArrayUrl.length>0?"?"+newArrayUrl.join("&"):'')+accessToken;
     }else{
@@ -78,13 +82,58 @@ var utils = {
         status: 500,
         errorCode: null,
         message: 'fail',
+        content: null,
     }
-    obj.contents = StringUtils.isEmpty(content) ? "请求不正确" : content;
+    obj.error = StringUtils.isEmpty(content) ? "请求不正确" : content;
     return JSON.stringify(obj);
-  }
+  },
+  error403 : function(content){
+    var obj = {
+        time: new Date().toFormat("YYYY-MM-DD HH24:MI:SS"),
+        status: 403,
+        errorCode: null,
+        message: 'fail',
+        content: null,
+    }
+    obj.error = StringUtils.isEmpty(content) ? "请求参数不正确" : content;
+    return JSON.stringify(obj);
+  },
+  error401 : function(){
+    var obj = {
+        time: new Date().toFormat("YYYY-MM-DD HH24:MI:SS"),
+        status: 401,
+        errorCode: null,
+        message: 'fail',
+        content: null,
+    }
+    obj.error =  "请登陆后再使用";
+    return JSON.stringify(obj);
+  },
+  contentToRes: function(content){
+    var obj = {
+      time: new Date().toFormat("YYYY-MM-DD HH24:MI:SS"),
+      status: 200,
+      errorCode: null,
+      message: 'fail',
+      content: content
+    }
+    return JSON.stringify(obj);
+  },
+  error500 : function(){
+    var obj = {
+        time: new Date().toFormat("YYYY-MM-DD HH24:MI:SS"),
+        status: 500,
+        errorCode: null,
+        message: 'fail',
+        content: null,
+    }
+    obj.error =  "服务器内部错误";
+    return JSON.stringify(obj);
+  },
 }
-
 module.exports = utils;
 
 
+// console.info(utils.getSign('/pay/payCenter/getAmount',{tenantId:0},'51792c20-d4b9-4f6d-aa55-591feb3ee019'));
+// console.info(0 != null);
 
