@@ -13,7 +13,7 @@ if(isMainThread){
   parentPort.on("message", buf => {
     // post to main thread
     const {page,url,body,authorization,accessToken} = buf;
-    console.info("worker receive => " + url,body,authorization,accessToken);
+    console.info("worker receive => " + page,url,body,authorization,accessToken);
     if(body._PAGE_NUMBER){
       delete body._PAGE_NUMBER;
     }

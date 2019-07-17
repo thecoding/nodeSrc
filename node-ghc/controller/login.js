@@ -15,8 +15,11 @@ class LoginHandle {
         post += chunk;
     });
     req.on('end', async function(){
-      if (req.session && req.session.isLogin) {//检查用户是否已经登录
-        res.end(utils.contentToRes(req.session.userInfo));//TODO 
+      if (req.session && req.session.isLogin && req.session.userInfo) {//检查用户是否已经登录
+        res.end(utils.contentToRes({
+          access_token: req.session.userInfo.access_token,
+          license: req.session.userInfo.license
+        }));
         return;
       } 
       post = querystring.parse(post);
@@ -48,10 +51,10 @@ class LoginHandle {
         req.session.userInfo = json.content;
         console.info(rtn);
         res.status(json.status);
-        res.send({
-          access_token: json.access_token,
-          username: json.access_token
-        });
+        res.send(utils.contentToRes({
+          access_token: json.content.access_token,
+          license: json.content.license
+        }));
       } catch (error) {
         console.error(error);
         res.status(500).send(utils.error500());
@@ -69,10 +72,7 @@ class LoginHandle {
           req.session.destroy();
           var json = JSON.parse(rtn);
           res.status(json.status);
-          res.send({
-            access_token: json.access_token,
-            username: json.access_token
-          });
+          res.send(rtn);
         } catch (error) {
           console.info(error);
           res.status(500).send(utils.error500());

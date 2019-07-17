@@ -28,7 +28,7 @@ var HttpUtil = {
     },
     post : function(path,body,acceptType,contentType,authorization,accessToken,success,error){
         var bodyString;
-        if(body == null || body == "" || body == "{}"){
+        if(body == null || body === ''){
           body = {};
         }
         if(body.sign != undefined){

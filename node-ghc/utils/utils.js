@@ -73,7 +73,9 @@ var utils = {
     }else{
       value = urlDeal + accessToken;
     }
+    console.log("签名地址："+value);
     var sign = md5(value);
+    console.log("签名为："+sign);
     return sign;
   },
   errorObj : function(content){

@@ -7,6 +7,9 @@ var utils = require('../utils/utils.js');
 var httpUtilPromisify = require('../utils/httpUtilPromisify.js');
 var poolUtil = require('../thread/threadPool');
 var querystring = require('querystring');
+var threadTest = require('../thread/threadTest.js');
+var fs = require('fs');
+var stream = require('stream');
 
 class Download {
 
@@ -34,7 +37,8 @@ class Download {
     });
 
     req.on('end',async function(){
-      var queryParam = querystring.parse(post);
+      // var queryParam = querystring.parse(post);
+      var queryParam = req.query;
       var fileName = "导出列表"; //导出默认名字
       if(queryParam._PAGE_NUMBER != undefined){
         delete queryParam._PAGE_NUMBER;
@@ -47,13 +51,14 @@ class Download {
       }
 
       queryParam._SEARCH_COUNT = 1;//有这个参数，就会返回total\size\current\hasNext\pages
-      
+
+      // queryParam.excelKeys = req.query.excelKeys; 这是get请求获取参数
       if(queryParam.excelKeys == undefined){
         res.status(403).send(utils.error403("没有excelKeys参数")).end();
         return;
       }
       queryParam._PAGE_NUMBER = 1;
-      queryParam._PAGE_SIZE = 10;
+      queryParam._PAGE_SIZE = 50;
 
       // console.info(StringUtils.isEmpty(queryParam.params));
       var excelData = new Array(); //excel数据
@@ -75,25 +80,47 @@ class Download {
         //表第一行数据 
         total = JSON.parse(rtn).content.total;
       } catch (error) {
-        console.info(error);
-        res.end(error);
+        try {
+          console.info(error);
+          var json = JSON.parse(error);
+          res.status(json.status).send(error);
+          res.end();
+        } catch (error) {
+          res.status(500).send(utils.error500());
+          res.end();
+        }
         return;
       }
       var totalPage = Math.ceil(total/queryParam._PAGE_SIZE);  
       var lastData;
+      // if(totalPage>1){
+      //   try {
+      //     // lastData = await poolUtil.getDownloadData(10,2,requestUrl,queryParam,utils.authorizationIsLogin(req),req.session.userInfo.access_token);
+      //     lastData = await threadTest.threadRun(6,2,requestUrl,queryParam,utils.authorizationIsLogin(req),req.session.userInfo.access_token);
+      //     console.info(lastData);  
+      //   } catch (error) {
+      //     console.error(error);
+      //   } finally{
+      //     // poolUtil.poolDestroy();
+      //   }
+      // }else{
+      //   lastData = new Array();
+      // }
+
+      lastData = new Array();
       if(totalPage>1){
-        try {
-          lastData = await poolUtil.getDownloadData(totalPage-1,2,requestUrl,queryParam,utils.authorizationIsLogin(req),req.session.userInfo.access_token);
-          // console.info(lastData);  
-          poolUtil.poolDestroy();
-        } catch (error) {
-          console.error(error);
-          poolUtil.poolDestroy();
+        for(var i=0;i<10;i++){
+          var _PAGE_NUMBER = 2;
+          try {
+            _PAGE_NUMBER = i + _PAGE_NUMBER;
+            queryParam._PAGE_NUMBER = _PAGE_NUMBER;
+            var rtnData = await httpUtilPromisify.postAndReturnJson(requestUrl, queryParam, utils.authorizationIsLogin(req),req.session.userInfo.access_token);
+            lastData.push(rtnData);
+          } catch (error) {
+            console.info(error); 
+          } 
         }
-      }else{
-        lastData = new Array();
       }
-      
       var firstArr = new Array();
       firstArr.push(JSON.stringify(firstData));
       lastData.push(firstData);
@@ -115,7 +142,8 @@ class Download {
           var item = items[i];
           var oneRow = new Array();
           for(let key in keys){
-            var str = item[keys[key]]
+            var name = keys[key];
+            var str = item[name];
             oneRow.push(StringUtils.isEmpty(str) ? '' : str);
           }
           excelData.push(oneRow);
@@ -126,6 +154,19 @@ class Download {
       res.setHeader('Content-Type', 'application/vnd.openxmlformats;charset=utf-8');
       res.setHeader("Content-Disposition", "attachment; filename=" +encodeURIComponent(fileName)+".xlsx");
       res.end(buffer, 'binary'); 
+
+      // res.setHeader('Content-Type', 'text/event-stream');
+      // res.setHeader('Cache-Control', 'no-cache');
+      // res.write(buffer);
+
+
+
+      // 创建一个bufferstream
+      // var bufferStream = new stream.PassThrough();
+      // //将Buffer写入
+      // bufferStream.end(buffer);
+      // //进一步使用
+      // bufferStream.pipe(res);
     })
   }
 }

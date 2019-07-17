@@ -7,7 +7,9 @@
 const Pool = require('worker-threads-pool')
 var httpUtilPromisify = require('../utils/httpUtilPromisify')
 
-const pool = new Pool({max: 5})
+const pool = new Pool({max: 5});
+
+
 var PoolUtil = {
   /**
    * @param {*} num 总共查询多少页
@@ -18,6 +20,7 @@ var PoolUtil = {
    * @param {*} accessToken 
    */
   getDownloadData(num,page,url,body,authorization,accessToken){
+    
     var arr = new Array();
     return new Promise((resolve, reject) => {
       for (let i = 0; i < num; i++) {
@@ -67,7 +70,13 @@ module.exports = PoolUtil;
 // console.info("--------");
 
 // (async () => {
-//   var data = await PoolUtil.getDownloadData();
+//   var num = 6;
+//   var page = 2;
+//   var url = '/pay/payCenter/queryPayOut';
+//   var body = {"_SEARCH_COUNT":1,"_PAGE_NUMBER":1,"_PAGE_SIZE":10};
+//   var accessToken = "006d89ae-6b19-41e9-a0f8-852696c5827d";
+//   var authorization = "Bearer " + accessToken;
+//   var data = await PoolUtil.getDownloadData(num,page,url,body,authorization,accessToken);
 //   console.info("============")
 //   console.info(data);
 // })();
