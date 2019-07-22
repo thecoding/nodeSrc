@@ -11,6 +11,9 @@ var threadTest = require('../thread/threadTest.js');
 var fs = require('fs');
 var stream = require('stream');
 
+var workerThreadsPool = require('../thread/workerThreadsPool.js');
+var workerThreadsPool2 = require('../thread/workerThreadsPool2.js');
+
 class Download {
 
   /**
@@ -58,9 +61,8 @@ class Download {
         return;
       }
       queryParam._PAGE_NUMBER = 1;
-      queryParam._PAGE_SIZE = 50;
+      queryParam._PAGE_SIZE = 2;
 
-      // console.info(StringUtils.isEmpty(queryParam.params));
       var excelData = new Array(); //excel数据
       // queryParam.excelLables = "车辆,用户名,身份证";
       var excelLables = StringUtils.isEmpty(queryParam.excelLables) ? new Array() : queryParam.excelLables.split(",");
@@ -91,41 +93,67 @@ class Download {
         }
         return;
       }
+
+      //session 中放置 是否下载完的标志
+      // req.session.userInfo.isDownload = false; //是否下载完
+      // workerThreadsPool({});//todo 
+      // res.status(200).send(utils.contentToRes("正在下载。。。"));
+      // res.end();
+
+
+      
+
       var totalPage = Math.ceil(total/queryParam._PAGE_SIZE);  
       var lastData;
+      // lastData = new Array();
       // if(totalPage>1){
-      //   try {
-      //     // lastData = await poolUtil.getDownloadData(10,2,requestUrl,queryParam,utils.authorizationIsLogin(req),req.session.userInfo.access_token);
-      //     lastData = await threadTest.threadRun(6,2,requestUrl,queryParam,utils.authorizationIsLogin(req),req.session.userInfo.access_token);
-      //     console.info(lastData);  
-      //   } catch (error) {
-      //     console.error(error);
-      //   } finally{
-      //     // poolUtil.poolDestroy();
+      //   for(var i=0;i<10;i++){
+      //     var _PAGE_NUMBER = 2;
+      //     try {
+      //       _PAGE_NUMBER = i + _PAGE_NUMBER;
+      //       queryParam._PAGE_NUMBER = _PAGE_NUMBER;
+      //       var rtnData = await httpUtilPromisify.postAndReturnJson(requestUrl, queryParam, utils.authorizationIsLogin(req),req.session.userInfo.access_token);
+      //       lastData.push(rtnData);
+      //     } catch (error) {
+      //       console.info(error); 
+      //     } 
       //   }
-      // }else{
-      //   lastData = new Array();
       // }
+      // var firstArr = new Array();
+      // firstArr.push(JSON.stringify(firstData));
+      // lastData.push(firstData);
 
-      lastData = new Array();
+      var attr = {
+        num: totalPage - 1,
+        page: 2,
+        url: requestUrl,
+        body: queryParam,
+        authorization: utils.authorizationIsLogin(req),
+        accessToken: req.session.userInfo.access_token
+      }
       if(totalPage>1){
-        for(var i=0;i<10;i++){
-          var _PAGE_NUMBER = 2;
-          try {
-            _PAGE_NUMBER = i + _PAGE_NUMBER;
-            queryParam._PAGE_NUMBER = _PAGE_NUMBER;
-            var rtnData = await httpUtilPromisify.postAndReturnJson(requestUrl, queryParam, utils.authorizationIsLogin(req),req.session.userInfo.access_token);
-            lastData.push(rtnData);
-          } catch (error) {
-            console.info(error); 
-          } 
+        try {
+          var rtnData = await workerThreadsPool(attr);  
+          if(rtnData.length>0){
+            lastData = rtnData;
+          }else{
+            lastData = new Array();
+          }
+          
+          // const httpUtil = require('../utils/httpUtil.js');
+          // const httpConfig = require('../config/config.js');
+
+          // const {num,page,url,body,authorization,accessToken} = attr;
+
+          // httpUtil.postAndReturnJson(httpConfig.host + ":"+httpConfig.port+url,body,authorization,accessToken,function(data){
+          //   console.log(data);
+          // });  
+        } catch (error) {
+          console.info(error);
         }
       }
-      var firstArr = new Array();
-      firstArr.push(JSON.stringify(firstData));
-      lastData.push(firstData);
-
-
+      lastData.push(JSON.parse(firstData));
+      
       //处理数据
       // console.info(excelLables);
       // queryParam.excelKeys = 'billId,channelType,objId,objType,objTypeName,sendDate,sendFlag,sendFlagNamesmsContent,smsId,smsType';
@@ -137,7 +165,15 @@ class Download {
           continue;
         }
         var json = lastData[j];
-        var items = JSON.parse(json).content.records;
+        var items;
+        if(typeof json === 'string'){
+          items = JSON.parse(json).content.records;
+        }else if(typeof json === 'object'){
+          items = json.content.records;
+        }else{
+          console.error('数据格式不正确');
+          continue;
+        }
         for(var i=0;i<items.length;i++){
           var item = items[i];
           var oneRow = new Array();
@@ -168,6 +204,172 @@ class Download {
       // //进一步使用
       // bufferStream.pipe(res);
     })
+  }
+  /**
+   * 导出，先生成文件，这种情况是导出文件会比较大，第一次请求过来的时候，先返回正确的响应，再
+   * @param {request} req 
+   * @param {response} res 
+   */
+  createExcelFile(req,res){
+    var realPathName = url.parse(req.url).pathname;
+    var requestUrl = ""; //数据请求地址
+    if(realPathName.length >= 6){
+      requestUrl = realPathName.replace('/excel2','');
+    }
+    if(StringUtils.isEmpty(requestUrl)){
+      res.status(500).send(utils.errorObj());
+      res.end();
+      return;
+    }
+    var post = '';
+    req.on('data',function(data){
+      post += data;
+    });
+
+    req.on('end',async function(){
+      //校验参数:  requestUrl 导出数据请求uri 
+      // fileName 文件名 (不必填)
+      // excelKeys 取数字段 (必填)
+      // excelLables 表头字段 (不必填)
+
+      // var queryParam = querystring.parse(post); // post 参数获取
+      var queryParam = req.query;
+      var fileName = "导出列表"; //导出默认名字
+      if(queryParam._PAGE_NUMBER != undefined){
+        delete queryParam._PAGE_NUMBER;
+      }
+      if(queryParam._PAGE_SIZE != undefined){
+        delete queryParam._PAGE_SIZE;
+      }
+      if(queryParam.fileName != undefined){
+        fileName = queryParam.fileName;
+      }
+      // queryParam.excelKeys = req.query.excelKeys; 这是get请求获取参数
+      if(queryParam.excelKeys == undefined){
+        res.status(403).send(utils.error403("没有excelKeys参数")).end();
+        return;
+      }
+      var attr = {
+        num: 5,
+        page: 2,
+        url: requestUrl,
+        body: queryParam,
+        authorization: utils.authorizationIsLogin(req),
+        accessToken: req.session.userInfo.access_token
+      }
+      console.info(new Date().toFormat("YYYY-MM-DD HH24:MI:SS"));
+      try {
+        workerThreadsPool2(attr); //主线程运行，不用等返回  
+      } catch (error) {
+        console.log(error);
+        req.session.userInfo.isDownload = false; //是否下载完
+        res.status(500).send(utils.error500("下载出错。。。"));
+        res.end();
+        return;
+      }
+      console.info(new Date().toFormat("YYYY-MM-DD HH24:MI:SS"));
+      //session 中放置 是否下载完的标志，并返回结果
+      console.info(req.session.userInfo.isDownload);
+      req.session.userInfo.isDownload = false; //是否下载完
+      res.status(200).send(utils.contentToRes("正在下载。。。"));
+      res.end();
+
+
+      // //这里可以做为配置文件 
+      // queryParam._SEARCH_COUNT = 1;//有这个参数，就会返回total\size\current\hasNext\pages
+      // queryParam._PAGE_NUMBER = 1;
+      // queryParam._PAGE_SIZE = 20;
+
+      // var excelData = new Array(); //excel数据
+      // var excelLables = StringUtils.isEmpty(queryParam.excelLables) ? new Array() : queryParam.excelLables.split(",");
+      // if(excelLables.length>0){
+      //   excelData.push(excelLables); //表头
+      // }
+      // var excelKeys = queryParam.excelKeys;
+
+      // delete queryParam.excelKeys;
+      // delete queryParam.excelLables;
+
+      // var total = 0;
+      // var firstData;
+      // try {
+      //   let rtn = await httpUtilPromisify.postAndReturnJson(requestUrl, queryParam, utils.authorizationIsLogin(req),req.session.userInfo.access_token);
+      //   firstData = rtn;
+      //   //表第一行数据 
+      //   total = JSON.parse(rtn).content.total;
+      // } catch (error) {
+      //   try {
+      //     console.info(error);
+      //     var json = JSON.parse(error);
+      //     res.status(json.status).send(error);
+      //     res.end();
+      //   } catch (error) {
+      //     res.status(500).send(utils.error500());
+      //     res.end();
+      //   }
+      //   return;
+      // }
+
+      
+      
+      // var totalPage = Math.ceil(total/queryParam._PAGE_SIZE);  
+      // var lastData;
+
+      // var attr = {
+      //   num: totalPage - 1,
+      //   page: 2,
+      //   url: requestUrl,
+      //   body: queryParam,
+      //   authorization: utils.authorizationIsLogin(req),
+      //   accessToken: req.session.userInfo.access_token
+      // }
+      // if(totalPage>1){
+      //   try {
+      //     var rtnData = await workerThreadsPool(attr);  
+      //     if(rtnData.length>0){
+      //       lastData = rtnData;
+      //     }else{
+      //       lastData = new Array();
+      //     }
+      //   } catch (error) {
+      //     console.info(error);
+      //   }
+      // }
+      // lastData.push(JSON.parse(firstData));
+      
+      // //处理数据
+      // var keys = excelKeys.split(","); //取的json key
+      // for(var j=0;j<lastData.length;j++){
+      //   if(lastData[j].length <= 0){
+      //     continue;
+      //   }
+      //   var json = lastData[j];
+      //   var items;
+      //   if(typeof json === 'string'){
+      //     items = JSON.parse(json).content.records;
+      //   }else if(typeof json === 'object'){
+      //     items = json.content.records;
+      //   }else{
+      //     console.error('数据格式不正确');
+      //     continue;
+      //   }
+      //   for(var i=0;i<items.length;i++){
+      //     var item = items[i];
+      //     var oneRow = new Array();
+      //     for(let key in keys){
+      //       var name = keys[key];
+      //       var str = item[name];
+      //       oneRow.push(StringUtils.isEmpty(str) ? '' : str);
+      //     }
+      //     excelData.push(oneRow);
+      //   }
+      // }
+      // // res.end("请求成功");
+      // var buffer = xlsx.build([{name: "mySheetName", data: excelData}]); // returns a buffer
+      // res.setHeader('Content-Type', 'application/vnd.openxmlformats;charset=utf-8');
+      // res.setHeader("Content-Disposition", "attachment; filename=" +encodeURIComponent(fileName)+".xlsx");
+      // res.end(buffer, 'binary'); 
+    });
   }
 }
 

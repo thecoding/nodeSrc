@@ -23,20 +23,20 @@ class LoginHandle {
         return;
       } 
       post = querystring.parse(post);
-      if(post.username == undefined){
-        res.status(403).end(utils.error403("没有username参数"));
-        return;
-      }
-      if(post.password == undefined){
-        res.status(403).end(utils.error403("没有password参数"));
-        return;
-      }
+      // if(post.username == undefined){
+      //   res.status(403).end(utils.error403("没有username参数"));
+      //   return;
+      // }
+      // if(post.password == undefined){
+      //   res.status(403).end(utils.error403("没有password参数"));
+      //   return;
+      // }
       //登陆请求
       var contents = {
-        username: post.username,
-        // username: "admin",
-        password: post.password,
-        // password: "ODkxMjM0NTYyOXt6eH0=",
+        // username: post.username,
+        username: "admin",
+        // password: post.password,
+        password: "ODkxMjM0NTYyOXt6eH0=",
         client_id: 'paycenter',
         client_secret: 'paycenter',
         Scope: 'server',

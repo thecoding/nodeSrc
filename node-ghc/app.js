@@ -28,6 +28,8 @@ var UUID = require('uuid');
 
 var path = require('path');
 
+var threadTest = require('./thread/threadTest2.js')
+var workerThreads = require('./thread/workerThreadsPool');
 
 //中台续传
 const fs = require('fs')
@@ -255,7 +257,23 @@ app.get("/refresh",function(req,res){
 });
 
 
+app.get('/threadTest',async function(req,res){
+  // try {
+  //   let s = await threadTest("sss"); 
+  //   console.info('get...' + s);
+  // } catch (error) {
+  //   console.log(error);
+  // }
 
+  try {
+    let rtn = workerThreads();
+    console.info("rtn ==> "+ rtn);  
+    res.end(JSON.stringify(rtn));
+  } catch (error) {
+    console.info(error);
+  }
+
+});
 
 
 

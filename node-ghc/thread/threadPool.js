@@ -3,6 +3,16 @@
 
 
 
+const {
+  isMainThread,
+  parentPort,
+  workerData,
+  threadId,
+  MessageChannel,
+  MessagePort,
+  Worker
+} = require('worker_threads');
+
 
 const Pool = require('worker-threads-pool')
 var httpUtilPromisify = require('../utils/httpUtilPromisify')
@@ -66,6 +76,9 @@ var PoolUtil = {
 }
 
 module.exports = PoolUtil;
+
+
+
 
 // console.info("--------");
 

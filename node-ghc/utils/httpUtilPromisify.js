@@ -47,6 +47,7 @@ var HttpUtil = {
             hostname : httpConfig.hostname,
             port : httpConfig.port,
             path : path,
+            timeout : 10*1000,
             method: 'POST',
             headers : {
                 'Authorization': authorization,
@@ -62,14 +63,13 @@ var HttpUtil = {
             var result = "";
             res.setEncoding("UTF-8");
 
-
             res.on("data",function(data){
                 result += data;
             });
-            res.on('error',function(){
-              // reject(result);
-              req.write(result);
-              req.end(); 
+            res.on('error',function(error){
+              reject(result);
+              // req.write(result);
+              // req.end(); 
             });
             
             //有返回
@@ -81,9 +81,22 @@ var HttpUtil = {
               }
             });
           });
+
+          req.on('timeout', () => {
+            console.error('http request timeout : ' + opts.hostname +':'+opts.port);
+            req.abort();
+          });
+          req.on('error', function(err) {
+            if (err.code === "ECONNRESET") {
+                console.log("Timeout occurs");
+                reject(err);
+            }
+          });
+
+
           console.log(httpConfig.hostname+':'+httpConfig.port+path+'?'+bodyString);
-            req.write(bodyString);
-            req.end();  
+          req.write(bodyString);
+          req.end();  
         });
 
     },

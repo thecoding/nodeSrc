@@ -121,7 +121,7 @@ var utils = {
     }
     return JSON.stringify(obj);
   },
-  error500 : function(){
+  error500 : function(content){
     var obj = {
         time: new Date().toFormat("YYYY-MM-DD HH24:MI:SS"),
         status: 500,
@@ -129,7 +129,7 @@ var utils = {
         message: 'fail',
         content: null,
     }
-    obj.error =  "服务器内部错误";
+    obj.error =  StringUtils.isEmpty(content) ? "服务器内部错误" : content;
     return JSON.stringify(obj);
   },
 }
