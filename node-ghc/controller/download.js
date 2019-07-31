@@ -42,8 +42,8 @@ class Download {
     });
 
     req.on('end',async function(){
-      // var queryParam = querystring.parse(post);
-      var queryParam = req.query;
+      var queryParam = querystring.parse(post); //post请求获取参数
+      // var queryParam = req.query; //get请求获取参数
       var fileName = "导出列表"; //导出默认名字
       if(queryParam._PAGE_NUMBER != undefined){
         delete queryParam._PAGE_NUMBER;
