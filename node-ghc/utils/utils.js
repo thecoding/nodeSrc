@@ -2,6 +2,7 @@
 var md5 = require('../lib/md5');
 var StringUtils = require('./stringUtils');
 
+
 var utils = {
   isLogin: function(req){
     return req.session != undefined && req.session.isLogin ? true : false;
