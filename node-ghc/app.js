@@ -20,6 +20,8 @@ var scheduleTask = require("./schedule/refreshToken");
 var utils = require("./utils/utils");
 const router = require('./routes/index')
 var path = require('path');
+const options = require('./config/config.js');
+const redisOptions = options.redis;
 require("date-utils");
 
 
@@ -35,14 +37,7 @@ var config = {
     "maxAge": 3000000,
     "secure": false
   },
-  "sessionStore": {
-    "host": "192.168.1.250",
-    "port": "6379",
-    "pass": "zxwlpt",
-    "db": 0,
-    "ttl": 30000, //单位秒
-    "logErrors": true
-  }
+  "sessionStore": redisOptions
 };
 
 app.use(session({

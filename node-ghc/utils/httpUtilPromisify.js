@@ -2,11 +2,12 @@ var http = require("http");
 // var file = require("./file");
 var querystring = require('querystring');
 var utils = require('../utils/utils')
+var options = require('../config/config.js');
 
-
+//请求地址
 var httpConfig = {
-  hostname: '192.168.1.127',
-  port: 8021,
+  hostname: options.host,
+  port: options.port,
 }
 
 
