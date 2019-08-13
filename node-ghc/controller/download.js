@@ -5,11 +5,8 @@ var StringUtils = require('../utils/stringUtils.js');
 var url = require('url');
 var utils = require('../utils/utils.js');
 var httpUtilPromisify = require('../utils/httpUtilPromisify.js');
-var poolUtil = require('../thread/threadPool');
 var querystring = require('querystring');
-var threadTest = require('../thread/threadTest.js');
 var fs = require('fs');
-var stream = require('stream');
 
 var path = require('path');
 
@@ -235,8 +232,8 @@ class Download {
       // excelKeys 取数字段 (必填)
       // excelLables 表头字段 (不必填)
 
-      // var queryParam = querystring.parse(post); // post 参数获取
-      var queryParam = req.query;
+      var queryParam = querystring.parse(post); // post 参数获取
+      // var queryParam = req.query;
       var fileName = "导出列表"; //导出默认名字
       if(queryParam._PAGE_NUMBER != undefined){
         delete queryParam._PAGE_NUMBER;
