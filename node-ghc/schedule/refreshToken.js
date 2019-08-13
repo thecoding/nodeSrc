@@ -64,10 +64,13 @@ async function refreshTokenAndSession(){
       for(let key in keyList){
         await redisClient.get(keyList[key], async (err, data) => {
           // exprise_in 小于一个阀值的时候就去刷新
-          var sessionData = JSON.parse(sessionData);
-          if(sessionData.userInfo.expires_in && sessionData.userInfo.expires_in< expiresTime){
-            let rtn = refreshRequest(data,keyList[key]);//请求刷新
-          }          
+          var sessionData = JSON.parse(data);
+          if(sessionData.userInfo != null && sessionData.userInfo != undefined && sessionData.userInfo.expires_in != null && sessionData.userInfo.expires_in !=undefined){
+            console.info(111);
+            if(sessionData.userInfo.expires_in != undefined && sessionData.userInfo.expires_in && sessionData.userInfo.expires_in< expiresTime){
+              let rtn = refreshRequest(data,keyList[key]);//请求刷新
+            }     
+          }
         });
       }
     });
